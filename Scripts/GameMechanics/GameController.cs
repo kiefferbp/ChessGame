@@ -153,7 +153,7 @@ public class GameController : MonoBehaviour {
 
                 if (!boundaryCheck(moveRow, moveCol)) { // invalid square
                     // All squares beyond this square are also invalid.
-                    // This isn't true in the case of knight, so it is
+                    // This isn't true in the case of a knight, so it is
                     // considered separately.
                     break;
                 }
@@ -165,7 +165,7 @@ public class GameController : MonoBehaviour {
                     possibleMoves.Add(candidateMove);
                     candidateMove.markOpenPath();
                 } else if (candidatePlayer == enemy) {
-                    // moving upwards, the pawn can't take a piece
+                    // when moving upwards, everything except the pawn can take a piece
                     if (!(piece is Pawn)) {
                         possibleMoves.Add(candidateMove);
                         candidateMove.markEnemy();
