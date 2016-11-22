@@ -166,12 +166,10 @@ public class GameController : MonoBehaviour {
                     candidateMove.markOpenPath();
                 } else if (candidatePlayer == enemy) {
                     // moving upwards, the pawn can't take a piece
-                    if (piece is Pawn) {
-                        break;
+                    if (!(piece is Pawn)) {
+                        possibleMoves.Add(candidateMove);
+                        candidateMove.markEnemy();
                     }
-
-                    possibleMoves.Add(candidateMove);
-                    candidateMove.markEnemy();
 
                     break;
                 } else { // friendly piece
