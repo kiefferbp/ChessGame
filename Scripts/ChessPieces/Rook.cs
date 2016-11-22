@@ -1,22 +1,36 @@
 ﻿using UnityEngine;
-using System.Collections;
+using System.Collections.Generic;
 
 public class Rook : ChessPiece {
-    private int[] moves;    // Move description
+    private const int MAX_MOVES = 7;
+
+    private List<MoveOffset> upMoveOffsets = new List<MoveOffset>();
+    private List<MoveOffset> downMoveOffsets = new List<MoveOffset>();
+    private List<MoveOffset> rightMoveOffsets = new List<MoveOffset>();
+    private List<MoveOffset> leftMoveOffsets = new List<MoveOffset>();
 
     void Start() {
-        /*
-         * Rooks can move 8 spaces either along the row it's on or 
-         * 8 spaces along the column it's on. The decription gives 
-         * ranges - ex. {0, 8} semantically means the piece can move 
-         * between 1 and 8 spaces along the column.
-         * */
-                          //Row Col
-        moves = new int[4] { 0,  8,
-                             8,  0 };
+        for (int i = 1; i <= MAX_MOVES; i++) {
+            upMoveOffsets.Add(new MoveOffset(i, 0));
+            downMoveOffsets.Add(new MoveOffset(-i, 0));
+            rightMoveOffsets.Add(new MoveOffset(0, i));
+            leftMoveOffsets.Add(new MoveOffset(0, -i));
+        }
     }
 
-    override public int[] moveDescription() {
-        return moves;
+    override public List<MoveOffset> getUpMoveOffsets() {
+        return upMoveOffsets;
+    }
+
+    override public List<MoveOffset> getDownMoveOffsets() {
+        return downMoveOffsets;
+    }
+
+    override public List<MoveOffset> getRightMoveOffsets() {
+        return rightMoveOffsets;
+    }
+
+    override public List<MoveOffset> getLeftMoveOffsets() {
+        return leftMoveOffsets;
     }
 }

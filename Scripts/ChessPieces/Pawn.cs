@@ -1,37 +1,41 @@
 ﻿using UnityEngine;
-using System.Collections;
+using System.Collections.Generic;
 
 public class Pawn : ChessPiece {
 
-    private bool openingMove;       // Pawns can move two spaces only at opening move
-    private int[] openingMoves;     // Move description of opening move
-    private int[] moves;            // Move description after opening move
+    private bool hasMoved = false; // Pawns can MoveOffset two spaces only at opening MoveOffset
+    private List<MoveOffset> upMoveOffsets = new List<MoveOffset>();
+    private List<MoveOffset> specialMoveOffsets = new List<MoveOffset>();
 
 	void Start () {
-        /*
-         * Pawns can only move along the columns. They can move 
-         * 1 space at a given turn or 2 at their opening move.
-         * */
-                                    //Row Col
-        openingMoves    = new int[4] { 0,  1,
-                                       0,  2 };
-        moves           = new int[2] { 0,  1 };
-        openingMove = true;
+        specialMoveOffsets.Add(new MoveOffset(1, 1));
+        specialMoveOffsets.Add(new MoveOffset(1, -1));
     }
 
-    override public int[] moveDescription() {
-        if(openingMove) {
-            openingMove = false;     
-            return openingMoves;
+    override public List<MoveOffset> getUpMoveOffsets() {
+        upMoveOffsets = new List<MoveOffset>();
+
+        // unless a piece is blocking it, the pawn can always move up a row
+        upMoveOffsets.Add(new MoveOffset(1, 0));
+
+        // if the pawn hasn't moved yet, it can also move up 2 rows
+        if (!hasMoved) {
+            upMoveOffsets.Add(new MoveOffset(2, 0));
         }
-        return moves;
+
+        return upMoveOffsets;
     }
 
-    public void move() {
-        openingMove = false;
+    // the pawn's diagonal attacking moves
+    override public List<MoveOffset> getSpecialMoveOffsets() {
+        return specialMoveOffsets;
     }
 
-    public bool hasNotMovedAsOfYet() {
-        return openingMove;
+    public void markAsMoved() {
+        hasMoved = true;
+    }
+
+    public bool hasMovedYet() {
+        return hasMoved;
     }
 }

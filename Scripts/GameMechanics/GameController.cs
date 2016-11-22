@@ -16,14 +16,14 @@ public class GameController : MonoBehaviour {
     /*
      * Constants
      * */
-    private const float VEC_ZERO    = 0.0f;
-    private const float SCALE_X     = 0.7f;     
-    private const float SCALE_Y     = 0.3f;
-    private const float SCALE_Z     = 0.7f;
+    private const float VEC_ZERO = 0.0f;
+    private const float SCALE_X = 0.7f; // 0.7f   
+    private const float SCALE_Y = 0.05f;  // 0.3f
+    private const float SCALE_Z = 0.7f; // 0.7f
     /*
      * Public variables
      * */
-    public static GridSquare[,] grid = new GridSquare[8,8];
+    public static GridSquare[,] grid = new GridSquare[8, 8];
     public GameObject wPlayer, bPlayer;                         // Player Gameobjects
     public GameObject chessBoard;                               // Chess board Gameobjects
     public PiecePrefabs piecePrefabs;                          // Chess piece prefabs
@@ -36,8 +36,7 @@ public class GameController : MonoBehaviour {
 
     enum Column { A, B, C, D, E, F, G, H };                     // Enumerated Columns
 
-    IEnumerator Start()
-    {
+    IEnumerator Start() {
         // Gets player script components 
         whitePlayer = wPlayer.GetComponent<Player>();
         blackPlayer = bPlayer.GetComponent<Player>();
@@ -47,7 +46,7 @@ public class GameController : MonoBehaviour {
 
         whiteTurn = true;   // White player always starts 
         moveMade = false;
-  
+
         yield return new WaitForSeconds(0.01f);
         // Initialize pieces
         initializePieces();
@@ -55,81 +54,130 @@ public class GameController : MonoBehaviour {
         squaresInPlay(whitePieces);
     }
 
-    void Update()
-    {
+    void Update() {
         if (moveMade)
             whiteTurn = !whiteTurn;
     }
 
-
-    public List<GridSquare> getMoves(GridSquare g)
-    {
+    public List<GridSquare> getMoves(GridSquare g) {
         ChessPiece piece = g.getPiece();
-        List<GridSquare> possibleMoves = new List<GridSquare>();
         int curRow = g.getRow();
         int curCol = g.getCol();
-        //int[] moveDescriptions = piece.moveDescription();
-        int checkRow, checkCol;
-        GridSquare candidate;
+        List<GridSquare> possibleMoves = new List<GridSquare>();
+        Dictionary<MoveType, List<MoveOffset>> offsetMap = new Dictionary<MoveType, List<MoveOffset>>();
+        Player friendly = (whiteTurn ? whitePlayer : blackPlayer);
+        Player enemy = (whiteTurn ? blackPlayer : whitePlayer);
+        Player playerOfPiece = g.getPlayer();
+        GridSquare candidateMove;
+        Player candidatePlayer;
 
-        
+        // add the move types of the piece to the map
+        offsetMap.Add(MoveType.UP, piece.getUpMoveOffsets());
+        offsetMap.Add(MoveType.DOWN, piece.getDownMoveOffsets());
+        offsetMap.Add(MoveType.RIGHT, piece.getRightMoveOffsets());
+        offsetMap.Add(MoveType.LEFT, piece.getLeftMoveOffsets());
+        offsetMap.Add(MoveType.DIAG_NE, piece.getNEDiagMoveOffsets());
+        offsetMap.Add(MoveType.DIAG_NW, piece.getNWDiagMoveOffsets());
+        offsetMap.Add(MoveType.DIAG_SW, piece.getSWDiagMoveOffsets());
+        offsetMap.Add(MoveType.DIAG_SE, piece.getSEDiagMoveOffsets());
 
-        Player enemy = whiteTurn ? blackPlayer : whitePlayer;
-        Player player = !whiteTurn ? blackPlayer : whitePlayer;
-        int direction = whiteTurn ? 1 : -1;
+        // handle the knights separately for simplicitly
+        if (piece is Knight) {
+            foreach (MoveOffset offset in piece.getKnightMoveOffsets()) {
+                int moveRow = curRow + offset.getRow();
+                int moveCol = curCol + offset.getCol();
 
+                if (boundaryCheck(moveRow, moveCol)) {
+                    candidateMove = grid[moveRow, moveCol];
+                    candidatePlayer = candidateMove.getPlayer();
+
+                    if (candidatePlayer == null || candidatePlayer == enemy) {
+                        possibleMoves.Add(candidateMove);
+                    }
+
+                    if (candidatePlayer == null) {
+                        candidateMove.markOpenPath();
+                    }
+
+                    if (candidatePlayer == enemy) {
+                        candidateMove.markEnemy();
+                    }
+                }
+            }
+
+            // we do not need to consider the other move types
+            return possibleMoves;
+        }
+
+        // add pawn attacking moves to possibleMoves
         if (piece is Pawn) {
-            Debug.Log("PawnSelected!");
-            checkRow = curRow + direction;
-            checkCol = curCol + 1;
-            if (boundaryCheck(checkRow, checkCol)) {
-                candidate = grid[checkRow, checkCol];
-                if (candidate.getPlayer() == enemy)
-                    possibleMoves.Add(candidate);
-            } // Checks one diagonal
-            checkCol = curCol - 1;
-            if (boundaryCheck(checkRow, checkCol)) {
-                candidate = grid[checkRow, checkCol];
-                if (candidate.getPlayer() == enemy)
-                    possibleMoves.Add(candidate);
-            } // Checks other diagonal
-            if (((Pawn)piece).hasNotMovedAsOfYet()) {                    // I do not like this :P
-                possibleMoves.Add(grid[curRow + direction, curCol]);
-                possibleMoves.Add(grid[curRow + 2 * direction, curCol]);
-                ((Pawn)piece).move();
+            // check the possible attacking pawn moves
+            foreach (MoveOffset offset in piece.getSpecialMoveOffsets()) {
+                int moveRow = curRow + offset.getRow();
+                int moveCol = curCol + offset.getCol();
+
+                // black pawns move down the board
+                if (playerOfPiece == blackPlayer) {
+                    // so we need to correct the row offset
+                    moveRow = curRow - offset.getRow();
+                }
+
+                // add the offseted square to the list of possible moves if
+                // it contains an enemy
+                if (boundaryCheck(moveRow, moveCol)) {
+                    candidateMove = grid[moveRow, moveCol];
+                    candidatePlayer = candidateMove.getPlayer();
+
+                    if (candidatePlayer == enemy) {
+                        possibleMoves.Add(candidateMove);
+                        candidateMove.markEnemy();
+                    }
+                }
             }
-            else if (grid[curRow + direction, curCol].getPlayer() != enemy)
-                possibleMoves.Add(grid[curRow + direction, curCol]);
-            else { }
-        }
-        else if (piece is Knight) {
-            Debug.Log("KnightSelected!");
-            Debug.Log(curRow + " "  + curCol);
-            knightMoves(curRow, curCol, possibleMoves, player);
-        }
-        else if (piece is Rook) {
-            Debug.Log("RookSelected!");
-            Debug.Log(curRow + " " + curCol);
-            goDownCol(curRow, curCol, possibleMoves, enemy);
-            goDownRow(curRow, curCol, possibleMoves, enemy);
-        }
-        else if (piece is Bishop) {
-            Debug.Log("BishopSelected!");
-            goDownDiag(curRow, curCol, possibleMoves, enemy);
-        }
-        else if (piece is Queen) {
-            Debug.Log("QueenSelected!");
-            goDownCol(curRow, curCol, possibleMoves, enemy);
-            goDownRow(curRow, curCol, possibleMoves, enemy);
-            goDownDiag(curRow, curCol, possibleMoves, enemy);
         }
 
-        foreach(GridSquare blah in possibleMoves) {
-            if (blah.getPlayer() == enemy) {
-                blah.markEnemy();
+        // iterate through the non-special move types
+        foreach (KeyValuePair<MoveType, List<MoveOffset>> kvp in offsetMap) {
+            MoveType moveType = kvp.Key;
+            List<MoveOffset> possibleOffsets = kvp.Value;
+
+            foreach (MoveOffset offset in possibleOffsets) {
+                int moveRow = curRow + offset.getRow();
+                int moveCol = curCol + offset.getCol();
+
+                // black pawns move down the board
+                if (piece is Pawn && playerOfPiece == blackPlayer) {
+                    // so we need to correct the row offset
+                    moveRow = curRow - offset.getRow();
+                }
+
+                if (!boundaryCheck(moveRow, moveCol)) { // invalid square
+                    // All squares beyond this square are also invalid.
+                    // This isn't true in the case of knight, so it is
+                    // considered separately.
+                    break;
+                }
+
+                candidateMove = grid[moveRow, moveCol];
+                candidatePlayer = candidateMove.getPlayer();
+
+                if (candidatePlayer == null) {
+                    possibleMoves.Add(candidateMove);
+                    candidateMove.markOpenPath();
+                } else if (candidatePlayer == enemy) {
+                    // moving upwards, the pawn can't take a piece
+                    if (piece is Pawn) {
+                        break;
+                    }
+
+                    possibleMoves.Add(candidateMove);
+                    candidateMove.markEnemy();
+
+                    break;
+                } else { // friendly piece
+                    break;
+                }
             }
-            else
-                blah.markOpenPath();
         }
 
         return possibleMoves;
@@ -140,10 +188,13 @@ public class GameController : MonoBehaviour {
         Player enemy = whiteTurn ? blackPlayer : whitePlayer;
         Player player = !whiteTurn ? blackPlayer : whitePlayer;
         ChessPiece piece = from.getPiece();
-        if(to.getPlayer() == enemy) {
+        if (piece is Pawn) {
+            ((Pawn)piece).markAsMoved();
+        }
+        if (to.getPlayer() == enemy) {
             ChessPiece enemyPiece = to.getPiece();
             Destroy(enemyPiece.gameObject);
-            if(whiteTurn)
+            if (whiteTurn)
                 blackPieces.Remove(to);
             else
                 whitePieces.Remove(to);
@@ -155,8 +206,7 @@ public class GameController : MonoBehaviour {
         if (whiteTurn) {
             whitePieces.Remove(from);
             whitePieces.Add(to);
-        }
-        else {
+        } else {
             blackPieces.Remove(from);
             blackPieces.Add(to);
         }
@@ -164,182 +214,11 @@ public class GameController : MonoBehaviour {
         piece.gameObject.transform.localPosition = new Vector3(VEC_ZERO, VEC_ZERO, VEC_ZERO);
     }
 
-    /*
-     * Helper for move gernator
-     * */
-    public void goDownRow(int row, int col, List<GridSquare> moves, Player enemy) {
-        GridSquare candidate;
-        Player p;
-        for (int i = col + 1; i < 8; i++) {
-            candidate = grid[row, i];
-            p = candidate.getPlayer();
-            if (p == null) 
-                moves.Add(candidate);
-            else if (p == enemy) {
-                moves.Add(candidate);
-                break;
-            }
-            else
-                break;
-        }
-        for (int i = col - 1; i >= 0; i--) {
-            candidate = grid[row, i];
-            p = candidate.getPlayer();
-            if (p == null)
-                moves.Add(candidate);
-            else if (p == enemy) {
-                moves.Add(candidate);
-                break;
-            }
-            else
-                break;
-        }
-    }
-
-    public void goDownCol(int row, int col, List<GridSquare> moves, Player enermy) {
-        GridSquare candidate;
-        Player p;
-        for (int i = row + 1; i < 8; i++) {
-            candidate = grid[i, col];
-            p = candidate.getPlayer();
-            Debug.Log(p == null);
-            if (p == null)
-                moves.Add(candidate);
-            else if (p == enermy) {
-                moves.Add(candidate);
-                break;
-            }
-            else
-                break;
-        }
-        for (int i = row - 1; i >= 0; i--) {
-            candidate = grid[i, col];
-            p = candidate.getPlayer();
-            if (p == null)
-                moves.Add(candidate);
-            else if (p == enermy) {
-                moves.Add(candidate);
-                break;
-            }
-            else
-                break;
-        }
-    }
-
-    public void goDownDiag(int row, int col, List<GridSquare> moves, Player enermy) {
-        GridSquare candidate;
-        Player p;
-
-        for (int i = 1; i < 8; i++) {               
-            if (!boundaryCheck(row + i, col + i))
-                break;
-            candidate = grid[row + i, col + i];
-            p = candidate.getPlayer();
-            if (p == null)
-                moves.Add(candidate);
-            else if (p == enermy) {
-                moves.Add(candidate);
-                break;
-            }
-            else
-                break;
-        } // Upper Right
-        for (int i = 1; i < 8; i++) {
-            if (!boundaryCheck(row + i, col - i))
-                break;
-            candidate = grid[row + i, col - i];
-            p = candidate.getPlayer();
-            if (p == null)
-                moves.Add(candidate);
-            else if (p == enermy) {
-                moves.Add(candidate);
-                break;
-            }
-            else
-                break;
-        } // Upper Left
-        for (int i = 1; i < 8; i++) {
-            if (!boundaryCheck(row - i, col + i))
-                break;
-            candidate = grid[row - i, col + i];
-            p = candidate.getPlayer();
-            if (p == null)
-                moves.Add(candidate);
-            else if (p == enermy) {
-                moves.Add(candidate);
-                break;
-            }
-            else
-                break;
-        } // Lower Right
-        for (int i = 1; i < 8; i++) {
-            if (!boundaryCheck(row - i, col - i))
-                break;
-            candidate = grid[row - i, col - i];
-            p = candidate.getPlayer();
-            if (p == null)
-                moves.Add(candidate);
-            else if (p == enermy) {
-                moves.Add(candidate);
-                break;
-            }
-            else
-                break;
-        } // Lower Left
-    }
-
-    public void knightMoves(int row, int col, List<GridSquare> moves, Player player) {
-        GridSquare candidate;
-        if (boundaryCheck(row + 2, col + 1)) {
-            candidate = grid[row + 2, col + 1];
-            if (candidate.getPlayer() != player)
-                moves.Add(candidate);
-        }
-        if (boundaryCheck(row + 2, col - 1)) {
-            candidate = grid[row + 2, col - 1];
-            if (candidate.getPlayer() != player)
-                moves.Add(candidate);
-        }
-        if (boundaryCheck(row - 2, col + 1)) {
-            candidate = grid[row - 2, col + 1];
-            if (candidate.getPlayer() != player)
-                moves.Add(candidate);
-        }
-        if (boundaryCheck(row - 2, col - 1)) {
-            candidate = grid[row - 2, col - 1];
-            if (candidate.getPlayer() != player)
-                moves.Add(candidate);
-        }
-        if (boundaryCheck(row + 1, col + 2)) {
-            candidate = grid[row + 1, col + 2];
-            if (candidate.getPlayer() != player)
-                moves.Add(candidate);
-        }
-        if (boundaryCheck(row + 1, col - 2)) {
-            candidate = grid[row + 1, col - 2];
-            if (candidate.getPlayer() != player)
-                moves.Add(candidate);
-        }
-        if (boundaryCheck(row - 1, col + 2)) {
-            candidate = grid[row - 1, col + 2];
-            if (candidate.getPlayer() != player)
-                moves.Add(candidate);
-        }
-        if (boundaryCheck(row - 1, col - 2)) {
-            candidate = grid[row - 1, col - 2];
-            if (candidate.getPlayer() != player)
-                moves.Add(candidate);
-        }
-    }
-
-    
-
     public bool boundaryCheck(int row, int col) {
         return row >= 0 && row < 8 && col >= 0 && col < 8;
     }
 
-    public List<GridSquare> getPieces()
-    {
+    public List<GridSquare> getPieces() {
         if (whiteTurn)
             return whitePieces;
         return blackPieces;
@@ -348,8 +227,7 @@ public class GameController : MonoBehaviour {
     /*
      * Tells if it's white player's turn
      * */
-    public bool isWhiteTurn()
-    {
+    public bool isWhiteTurn() {
         return whiteTurn;
     }
 
@@ -357,18 +235,14 @@ public class GameController : MonoBehaviour {
      * Sets squares in or out of play - determines if they can be 
      * triggered or ignored. 
      * */
-    public void squaresInPlay(List<GridSquare> squares)
-    {
-        foreach(GridSquare g in squares)
-        {
+    public void squaresInPlay(List<GridSquare> squares) {
+        foreach (GridSquare g in squares) {
             g.activate();
         }
     }
 
-    public void squaresOutOfPlay(List<GridSquare> squares)
-    {
-        foreach (GridSquare g in squares)
-        {
+    public void squaresOutOfPlay(List<GridSquare> squares) {
+        foreach (GridSquare g in squares) {
             g.deactivate();
         }
     }
@@ -376,8 +250,7 @@ public class GameController : MonoBehaviour {
     /*
      * Player ends turn 
      * */
-    public void endTurn()
-    {
+    public void endTurn() {
         whiteTurn = !whiteTurn;
     }
 
@@ -387,9 +260,9 @@ public class GameController : MonoBehaviour {
     public void initializePieces() {
         // Create pawns
         for (int i = 0; i < 8; i++) {
-            grid[1, i].setPiece((Instantiate(piecePrefabs.wPawn, grid[1, i].transform) 
+            grid[1, i].setPiece((Instantiate(piecePrefabs.wPawn, grid[1, i].transform)
                 as GameObject).GetComponent<ChessPiece>());     // Instantiate white pawn and set
-            grid[6, i].setPiece((Instantiate(piecePrefabs.bPawn, grid[6, i].transform) 
+            grid[6, i].setPiece((Instantiate(piecePrefabs.bPawn, grid[6, i].transform)
                 as GameObject).GetComponent<ChessPiece>());     // Instantiate black pawn and set
         }
         // Create rooks
@@ -433,8 +306,8 @@ public class GameController : MonoBehaviour {
          * */
         for (int i = 0; i < 8; i++) {
             // Assign Players to squares
-            grid[0, i].setPlayer(whitePlayer); 
-            grid[1, i].setPlayer(whitePlayer); 
+            grid[0, i].setPlayer(whitePlayer);
+            grid[1, i].setPlayer(whitePlayer);
             grid[6, i].setPlayer(blackPlayer);
             grid[7, i].setPlayer(blackPlayer);
             // Add pieces to player lists
@@ -446,17 +319,17 @@ public class GameController : MonoBehaviour {
         /*
          * Reset positions and re-scale
          * */
-        for(int i = 0; i < whitePieces.Count; i++) {
+        for (int i = 0; i < whitePieces.Count; i++) {
             configureTransform(whitePieces[i].getPiece().gameObject.transform);
             configureTransform(blackPieces[i].getPiece().gameObject.transform);
-        } 
+        }
     }
 
     /*
      * Zero's out the position and re-scales.
      * */
     public void configureTransform(Transform t) {
-        t.localPosition = new Vector3(VEC_ZERO, VEC_ZERO, VEC_ZERO);
+        t.localPosition = Vector3.zero;
         t.localScale = new Vector3(SCALE_X, SCALE_Y, SCALE_Z);
         t.localRotation = Quaternion.identity;                  // I dont like this
         t.Rotate(new Vector3(-90.0f, VEC_ZERO, VEC_ZERO));      // I dont like this

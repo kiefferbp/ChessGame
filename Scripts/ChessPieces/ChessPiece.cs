@@ -1,20 +1,45 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
-abstract public class ChessPiece : MonoBehaviour {
-    /*
-     * Each chess piece was a description of how it can 
-     * move. Decriptions are representded with 2 integer 
-     * values: a row and column. These values indicate 
-     * how many squares the piece the piece can from its
-     * current square. Ex. { 1, 0 ) means that a piece 
-     * can move 1 square along its current row and 0 
-     * squares along its current column. Since some pieces
-     * can move across the entire board, their moves are 
-     * represented with a range. If a description contains,
-     * an 8, this indicates a range from 1 to 8. Ex. { 8, 0 } 
-     * means that a piece can from between 1 and 8 spaces along 
-     * its current row and 0 spaces along its current column.
-     * */  
-    abstract public int[] moveDescription();
+public class ChessPiece : MonoBehaviour {
+    public virtual List<MoveOffset> getUpMoveOffsets() {
+        return new List<MoveOffset>();
+    }
+
+    public virtual List<MoveOffset> getDownMoveOffsets() {
+        return new List<MoveOffset>();
+    }
+
+    public virtual List<MoveOffset> getRightMoveOffsets() {
+        return new List<MoveOffset>();
+    }
+
+    public virtual List<MoveOffset> getLeftMoveOffsets() {
+        return new List<MoveOffset>();
+    }
+
+    public virtual List<MoveOffset> getNEDiagMoveOffsets() {
+        return new List<MoveOffset>();
+    }
+
+    public virtual List<MoveOffset> getNWDiagMoveOffsets() {
+        return new List<MoveOffset>();
+    }
+
+    public virtual List<MoveOffset> getSWDiagMoveOffsets() {
+        return new List<MoveOffset>();
+    }
+
+    public virtual List<MoveOffset> getSEDiagMoveOffsets() {
+        return new List<MoveOffset>();
+    }
+
+    public virtual List<MoveOffset> getKnightMoveOffsets() {
+        return new List<MoveOffset>();
+    }
+
+    public virtual List<MoveOffset> getSpecialMoveOffsets() {
+        return new List<MoveOffset>();
+    }
 }
